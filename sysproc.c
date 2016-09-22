@@ -95,20 +95,15 @@ int
 sys_setprio(void)
 {
   int n;
-
-  if(argint(0, &n) < 0)
+  if(argint(0, &n) <= 0)
     return -1;
 
-  acquire(&ptable.lock);
-  proc->prio = n;
-  release(&ptable.lock);
-
-  return n;
+  return setprio(n);
 }
 
 // Function to get priority
 int
 sys_getprio(void)
 {
-  return proc->prio;
+  return getprio();
 }

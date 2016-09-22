@@ -108,7 +108,7 @@ userinit(void)
   // writes to be visible, and the lock is also needed
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
-
+  p->prio = 1;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -536,4 +536,24 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+
+int
+setprio(int n)
+{
+  acquire(&ptable.lock);
+  proc->prio = n;
+  release(&ptable.lock);
+  return n;
+}
+
+int 
+getprio(void)
+{
+  int n;
+  acquire(&ptable.lock);
+  n = proc->prio;
+  release(&ptable.lock);
+  return n;
 }
