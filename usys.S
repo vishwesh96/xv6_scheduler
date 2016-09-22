@@ -10,7 +10,7 @@
 
 SYSCALL(fork)
 SYSCALL(exit)
-SYSCALL(wait)
+SYSCALL(wait)user
 SYSCALL(pipe)
 SYSCALL(read)
 SYSCALL(write)
@@ -29,3 +29,5 @@ SYSCALL(getpid)
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
+SYSCALL(setprio)
+SYSCALL(getprio)
