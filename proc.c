@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -109,6 +110,7 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
   p->prio = 1;
+  p->cycles_pending = 0;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -174,6 +176,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->prio = 1;
+  np->cycles_pending = 0;
   np->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -277,6 +280,8 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+
+/*original*/
 // void
 // scheduler(void)
 // {
@@ -310,15 +315,11 @@ wait(void)
 //   }
 // }
 
-
-
-
-/*test scheduler*/
-
+/*weighted round robin*/
 void
 scheduler(void)
 {
-  int max_index = -1;
+  struct proc *p;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -326,42 +327,82 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-
-    int max_priority = 0;
-    int start_index = (max_index+1)%NPROC;
-
-
-    for(int i = start_index; start_index <= (++i)%NPROC ;){
-      struct proc * p = &ptable.proc[i];
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-      if(p->prio > max_priority){
-      	max_priority = p->prio;
-      	max_index = i;
-      }
 
-    }
-
-    if(max_index!=-1){
-      struct proc * p_max = &ptable.proc[max_index];
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      proc = p_max;
-      switchuvm(p_max);
-      p_max->state = RUNNING;
-      swtch(&cpu->scheduler, p_max->context);
+      p->cycles_pending = p->cycles_pending + p->prio;
+      proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&cpu->scheduler, p->context);
       switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       proc = 0;
-  	}
-
+    }
     release(&ptable.lock);
 
   }
 }
+
+
+/*strict priority scheduler*/
+
+// void
+// scheduler(void)
+// {
+//   int max_index = -1;
+
+//   for(;;){
+//     // Enable interrupts on this processor.
+//     sti();
+
+//     // Loop over process table looking for process to run.
+//     acquire(&ptable.lock);
+
+//     int max_priority = 0;
+//     int start_index = (max_index+1)%NPROC;
+
+//     int i = start_index;
+//     for(;i<NPROC+start_index;i++){
+
+//       struct proc * p = &ptable.proc[(i+start_index)%NPROC];
+//       if(p->state != RUNNABLE)
+//         continue;
+//       if(p->prio > max_priority){
+//         max_priority = p->prio;
+//         max_index = (i+start_index)%NPROC;
+//       }
+// 	}
+
+//     if(max_index!=-1){
+//       struct proc * p_max = &ptable.proc[max_index];
+//       // Switch to chosen process.  It is the process's job
+//       // to release ptable.lock and then reacquire it
+//       // before jumping back to us.
+//       proc = p_max;
+//       switchuvm(p_max);
+//       p_max->state = RUNNING;
+//       swtch(&cpu->scheduler, p_max->context);
+//       switchkvm();
+
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       proc = 0;
+//   	}
+
+//     release(&ptable.lock);
+
+//   }
+// }
+
+
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
@@ -389,12 +430,30 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+/*original*/
+// void
+// yield(void)
+// {
+//   acquire(&ptable.lock);  //DOC: yieldlock
+//   proc->state = RUNNABLE;
+//   sched();
+//   release(&ptable.lock);
+// }
+
+
+/*weighted round robin*/
 void
 yield(void)
 {
+  
   acquire(&ptable.lock);  //DOC: yieldlock
-  proc->state = RUNNABLE;
-  sched();
+
+  proc->cycles_pending = proc->cycles_pending - 1;
+  if(proc->cycles_pending==0){
+	  proc->state = RUNNABLE;
+	  sched();
+  }
+
   release(&ptable.lock);
 }
 
