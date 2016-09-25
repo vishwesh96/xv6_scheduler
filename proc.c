@@ -316,47 +316,10 @@ wait(void)
 // }
 
 /*weighted round robin*/
-void
-scheduler(void)
-{
-  struct proc *p;
-
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
-
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      p->cycles_pending = p->cycles_pending + p->prio;
-      proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      swtch(&cpu->scheduler, p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      proc = 0;
-    }
-    release(&ptable.lock);
-
-  }
-}
-
-
-/*strict priority scheduler*/
-
 // void
 // scheduler(void)
 // {
-//   int max_index = -1;
+//   struct proc *p;
 
 //   for(;;){
 //     // Enable interrupts on this processor.
@@ -364,42 +327,79 @@ scheduler(void)
 
 //     // Loop over process table looking for process to run.
 //     acquire(&ptable.lock);
-
-//     int max_priority = 0;
-//     int start_index = (max_index+1)%NPROC;
-
-//     int i = start_index;
-//     for(;i<NPROC+start_index;i++){
-
-//       struct proc * p = &ptable.proc[(i+start_index)%NPROC];
+//     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
 //       if(p->state != RUNNABLE)
 //         continue;
-//       if(p->prio > max_priority){
-//         max_priority = p->prio;
-//         max_index = (i+start_index)%NPROC;
-//       }
-// 	}
 
-//     if(max_index!=-1){
-//       struct proc * p_max = &ptable.proc[max_index];
 //       // Switch to chosen process.  It is the process's job
 //       // to release ptable.lock and then reacquire it
 //       // before jumping back to us.
-//       proc = p_max;
-//       switchuvm(p_max);
-//       p_max->state = RUNNING;
-//       swtch(&cpu->scheduler, p_max->context);
+//       p->cycles_pending = p->cycles_pending + p->prio;
+//       proc = p;
+//       switchuvm(p);
+//       p->state = RUNNING;
+//       swtch(&cpu->scheduler, p->context);
 //       switchkvm();
 
 //       // Process is done running for now.
 //       // It should have changed its p->state before coming back.
 //       proc = 0;
-//   	}
-
+//     }
 //     release(&ptable.lock);
 
 //   }
 // }
+
+
+/*strict priority scheduler*/
+
+void
+scheduler(void)
+{
+  int max_index = -1;
+
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+
+    int max_priority = 0;
+    int start_index = (max_index+1)%NPROC;
+
+    int i = start_index;
+    for(;i<NPROC+start_index;i++){
+
+      struct proc * p = &ptable.proc[(i+start_index)%NPROC];
+      if(p->state != RUNNABLE)
+        continue;
+      if(p->prio > max_priority){
+        max_priority = p->prio;
+        max_index = (i+start_index)%NPROC;
+      }
+	}
+
+    if(max_index!=-1){
+      struct proc * p_max = &ptable.proc[max_index];
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      proc = p_max;
+      switchuvm(p_max);
+      p_max->state = RUNNING;
+      swtch(&cpu->scheduler, p_max->context);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      proc = 0;
+  	}
+
+    release(&ptable.lock);
+
+  }
+}
 
 
 
@@ -431,31 +431,31 @@ sched(void)
 
 // Give up the CPU for one scheduling round.
 /*original*/
-// void
-// yield(void)
-// {
-//   acquire(&ptable.lock);  //DOC: yieldlock
-//   proc->state = RUNNABLE;
-//   sched();
-//   release(&ptable.lock);
-// }
-
-
-/*weighted round robin*/
 void
 yield(void)
 {
-  
   acquire(&ptable.lock);  //DOC: yieldlock
-
-  proc->cycles_pending = proc->cycles_pending - 1;
-  if(proc->cycles_pending==0){
-	  proc->state = RUNNABLE;
-	  sched();
-  }
-
+  proc->state = RUNNABLE;
+  sched();
   release(&ptable.lock);
 }
+
+
+/*weighted round robin*/
+// void
+// yield(void)
+// {
+  
+//   acquire(&ptable.lock);  //DOC: yieldlock
+
+//   proc->cycles_pending = proc->cycles_pending - 1;
+//   if(proc->cycles_pending==0){
+// 	  proc->state = RUNNABLE;
+// 	  sched();
+//   }
+
+//   release(&ptable.lock);
+// }
 
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
