@@ -7,7 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
-
+#define INT_MIN -32767
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -365,12 +365,11 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
-    int max_priority = 0;
+    int max_priority = INT_MIN;
     int start_index = (max_index+1)%NPROC;
-
-    int i = start_index;
-    for(;i<NPROC+start_index;i++){
-
+   
+    int i = 0;
+    for(;i<NPROC;i++){
       struct proc * p = &ptable.proc[(i+start_index)%NPROC];
       if(p->state != RUNNABLE)
         continue;
@@ -380,8 +379,12 @@ scheduler(void)
       }
 	}
 
-    if(max_index!=-1){
+    if(max_index!=-1&& ptable.proc[max_index].state==RUNNABLE){
       struct proc * p_max = &ptable.proc[max_index];
+      // if(p_max->state!=RUNNABLE){
+      //   release(&ptable.lock);
+      //   continue;
+      // }
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.

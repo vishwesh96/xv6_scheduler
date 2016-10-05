@@ -95,9 +95,7 @@ int
 sys_setprio(void)
 {
   int n;
-  if(argint(0, &n) < 0)
-    return -1;
-
+  argint(0, &n);
   return setprio(n);
 }
 
